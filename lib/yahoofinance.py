@@ -4,11 +4,13 @@ from tinydb import TinyDB, Query
 
 from datetime import datetime, timedelta
 import logging
-import threading
 import pandas_market_calendars as mcal
 
-lock = threading.Lock()
-glog = logging.getLogger("getPrice")
+YahooFinanceLogger = logging.getLogger("YahooFinance")
+YahooFinanceLogger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+YahooFinanceLogger.addHandler(ch)
 
 
 class YahooFinance:
@@ -18,8 +20,6 @@ class YahooFinance:
             start_date=pd.Timestamp(date, tz="America/New_York"),
             end_date=pd.Timestamp(date, tz="America/New_York"),
         )
-        # d = mcal.date_range(dates, frequency="1D")
-        # self.logger.debug(cal)
         try:
             if not nyse.open_at_time(
                 cal,
@@ -33,7 +33,9 @@ class YahooFinance:
             self.logger.debug("Cannot get open markget, return None")
             return None
         q = Query()
-        result = db.search((q.symbol == symbol) & (q.date == date.strftime("%Y-%m-%d")))
+        result = self.db.search(
+            (q.Symbol == symbol) & (q.Date == date.strftime("%Y-%m-%d"))
+        )
         if len(result):
             self.logger.debug("Find data in db")
             return result
@@ -43,8 +45,8 @@ class YahooFinance:
             group_by="ticker",
             progress=False,
         )
-        data.insert(0, "symbol", symbol)
-        data.insert(0, "date", data.index.strftime("%Y-%m-%d"))
+        data.insert(0, "Symbol", symbol)
+        data.insert(0, "Date", data.index.strftime("%Y-%m-%d"))
         self.db.insert_multiple(data.to_dict("records"))
 
     def getPriceRange(self, symbol: str, start: datetime, end: datetime):
@@ -56,7 +58,7 @@ class YahooFinance:
             cur += timedelta(days=1)
         return ret
 
-    def __init__(self, db: TinyDB, logger=glog):
+    def __init__(self, db: TinyDB, logger=YahooFinanceLogger):
         self.db = db
         self.logger = logger
 
